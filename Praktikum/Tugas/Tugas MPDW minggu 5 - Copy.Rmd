@@ -1,0 +1,203 @@
+---
+title: "Tugas 5 MPDW"
+author: "Delia Fitri Audina"
+output: html_document
+---
+
+# Package
+```{r}
+library(ggplot2)
+library(tsibble)
+library(tseries)
+library(MASS)
+library(readxl)
+library(dplyr)
+library(forecast)   
+library(moments) 
+```
+
+# Input Data
+
+```{r}
+data <- read_xlsx("C:/Users/Delia/OneDrive/Documents/MPDW 5/Data Tugas5.xlsx")
+data
+```
+
+```{r}
+data$Kendaraan <- ts(data$Kendaraan) 
+data$Periode <- as.Date(data$Periode)
+data
+```
+
+```{r}
+# Plot time series
+ggplot(data, aes(x = Periode, y = Kendaraan)) +
+  geom_line(y = mean(data$Kendaraan, color = "yellow"))+
+  geom_line(color = "black") +
+  geom_point(color = "pink") +
+  labs(title = "Plot Time Series", x = "Periode", y = "Jumlah Kendaraan")
+```
+
+Menurut plot time series, jumlah Kendaraan pada tol terlihat tidak stasioner baik dari segi rataan maupun ragam. Terdapat komponen musiman dengan fluktuasi signifikan di beberapa titik waktu, serta beberapa lonjakan yang perlu dieksplorasi lebih lanjut. Sehingga perlu beberapa pengujian.
+
+### Plot ACF
+
+```{r}
+acf(data$Kendaraan, main="ACF Jumlah Kendaraan")
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *tails off*  yang konsisten dengan karakteristik model autoregressive (AR). Data menunjukkan adanya autokorelasi yang signifikan di beberapa lag awal, namun perlahan menurun. Ini mengindikasikan bahwa data masih memiliki hubungan antarwaktu yang signifikan dan mungkin membutuhkan pemrosesan lebih lanjut untuk mencapai stasioneritas.
+
+### Plot PACF
+
+```{r}
+pacf(data$Kendaraan, main="PACF Jumlah Kendaraan")
+```
+Data bersifat cuts-off setelah lag ke-1 di PACF. Data jumlah kendaraan diduga berbentuk AR(1)
+
+### Uji ADF
+
+```{r}
+tseries::adf.test(data$Kendaraan)
+```
+
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.1808 yang lebih besar dari taraf nyata 5% sehingga tak cukup bukti untuk menolak $H_0$ dan menandakan bahwa data stasioner dalam rataan. 
+
+### Uji Box-Cox
+
+```{r}
+library(MASS)
+n <- nrow(data)
+index <- seq(1:n)
+bc = boxcox(data$Kendaraan~index)
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai *rounded value* ($\lambda$) optimum sebesar **-1.555556** dan pada selang kepercayaan 95% nilai memiliki batas bawah **-2.000000 ** dan batas atas **-1.111111**. Selang tersebut tidak memuat nilai satu sehingga dapat dikatakan bahwa data tidak stasioner dalam ragam.
+
+# Partisi Data 
+## Bagian 1
+
+```{r}
+data1 <- data[1:50,]
+data1$Saham <- ts(data1$Kendaraan)
+data1$Periode <- as.Date(data1$Periode)
+```
+
+```{r}
+# Plot time series
+ggplot(data1, aes(x = Periode, y = Kendaraan)) +
+  geom_line(y = mean(data1$Kendaraan, color = "yellow"))+
+  geom_line(color = "black") +
+  geom_point(color = "pink") +
+  labs(title = "Plot Time Series", x = "Periode", y = "Jumlah Kendaraan")
+```
+
+### Plot ACF
+
+```{r}
+acf(data1$Kendaraan, main="ACF Jumlah Kendaraan")
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *tails off*
+
+### Plot PACF
+
+```{r}
+pacf(data1$Kendaraan, main="PACF Jumlah Kendaraan")
+```
+Data bersifat cuts-off setelah lag ke-1 di PACF. Data 1 jumlah kendaraan diduga berbentuk AR(1)
+
+### Uji ADF
+
+```{r}
+adf.test(data1$Kendaraan)
+```
+
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.1711 yang lebih besar dari taraf nyata 5% sehingga tak cukup bukti untuk menolak $H_0$ dan menandakan bahwa data stasioner dalam rataan. 
+
+### Uji Box-Cox
+
+```{r}
+n <- nrow(data1)
+index <- seq(1:n)
+bc = boxcox(data1$Kendaraan~index)
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+
+Gambar di atas menunjukkan nilai *rounded value* ($\lambda$) optimum sebesar **-1.56** dan pada selang kepercayaan 95% nilai memiliki batas bawah **-2.0 ** dan batas atas **-0.63**. Selang tersebut tidak memuat nilai satu sehingga dapat dikatakan bahwa data tidak stasioner dalam ragam. Namun perlu dicatat karena ambang batas sangat berdekatan dengan angka 1 maka kemungkinan selisih ragam pada beberapa bagian tidak terlalu besar atau terlihat.
+
+## Bagian 2
+
+```{r}
+data2 <- data[51:100,]
+data2$Kendaraan <- ts(data2$Kendaraan)
+data2$Periode <- as.Date(data2$Periode)
+```
+
+```{r}
+# Plot time series
+ggplot(data2, aes(x = Periode, y = Kendaraan)) +
+  geom_line(y = mean(data2$Kendaraan, color = "yellow"))+
+  geom_line(color = "black") +
+  geom_point(color = "pink") +
+  labs(title = "Plot Time Series", x = "Periode", y = "Jumlah Kendaraan")
+```
+
+### Plot ACF
+
+```{r}
+acf(data2$Kendaraan, main="ACF Jumlah Kendaraan")
+```
+
+Berdasarkan plot ACF, terlihat bahwa plot ACF pada data tersebut cenderung *tails off*
+
+### Plot PACF
+
+```{r}
+pacf(data2$Kendaraan, main="PACF Jumlah Kendaraan")
+```
+Data bersifat cuts-off setelah lag ke-1 di PACF. Data 2 jumlah kendaraan diduga berbentuk AR(1)
+
+### Uji ADF
+
+```{r}
+adf.test(data2$Kendaraan)
+```
+$H_0$ : Data tidak stasioner dalam rataan
+
+$H_1$ : Data stasioner dalam rataan
+
+Berdasarkan uji ADF tersebut, didapat *p-value* sebesar 0.0843 yang lebih besar dari taraf nyata 5% sehingga tak cukup bukti untuk menolak $H_0$ dan menandakan bahwa data stasioner dalam rataan. 
+
+### Uji Box-Cox
+
+```{r}
+n <- nrow(data2)
+index <- seq(1:n)
+bc = boxcox(data2$Kendaraan~index)
+#Nilai Rounded Lambda
+lambda <- bc$x[which.max(bc$y)]
+lambda
+#SK
+bc$x[bc$y > max(bc$y) - 1/2 * qchisq(.95,1)]
+```
+Gambar di atas menunjukkan nilai *rounded value* ($\lambda$) optimum sebesar **-1.15** dan pada selang kepercayaan 95% nilai memiliki batas bawah **-1.68** dan batas atas **-0.63**. Selang tersebut tidak memuat nilai satu sehingga dapat dikatakan bahwa data tidak stasioner dalam ragam.
+
+
